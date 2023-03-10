@@ -3,56 +3,72 @@ use ndarray::{self, arr2, Array2, Array1};
 
 fn main() {
     
+    let cell_empty: char = '-';
     let stdin = io::stdin();
     let mut grid = arr2(&[
-        ['-', '-', '-'],
-        ['-', '-', '-'],
-        ['-', '-', '-']
+        [cell_empty, cell_empty, cell_empty],
+        [cell_empty, cell_empty, cell_empty],
+        [cell_empty, cell_empty, cell_empty]
     ]);
     
-    let mut x_turn: bool = true;
+    // let mut x_turn: bool = true;
     let mut playing: bool = true;
+    let mut player = PlayerTurn::X;
 
+    // Game loop
     while playing {
-        
-        // Prompt player
-        if x_turn {
-            println!("X's Turn. Where would you like to play?");
-        } else {
-            println!("O's Turn. Where would you like to play?");
-        }
 
-        // Initialize position variables
-        let mut x_str = String::new();
-        let mut y_str = String::new();
+        // Prompt the player        
+        player.print_turn();
+
+        // Initialize position and input variables
+        let mut input = String::new();
         let x_num: usize;
         let y_num: usize;
         
         // Get position
+
+        // Get x:
+        // Prompt, read line, check for error, set `x_num`
         println!("Column: ");
-        stdin.read_line(&mut x_str).expect("Read failed: at x_str");
+        stdin.read_line(&mut input).expect("Read failed: at x_str");
+        if let Err(e) = check_parse(input.trim()) {
+            println!("{e}. Try again.");
+            continue;
+        }
+        x_num = input.trim().parse::<usize>().expect("Parse failed: at x_num") - 1;
 
-        println!("Row: ");
-        stdin.read_line(&mut y_str).expect("Read failed: at y_str");
+        // Clear input
+        input.clear();
         
-        // x_num and y_num are set to the column/row minus 1 to get the indices
-        x_num = x_str.trim().parse::<usize>().expect("Parse failed: at x_num") - 1;
-        y_num = y_str.trim().parse::<usize>().expect("Parse failed: at y_num") - 1;
+        // Get y:
+        // Prompt, read line, check for error, set `y_num`
+        println!("Row: ");
+        stdin.read_line(&mut input).expect("Read failed: at y_str");
+        if let Err(e) = check_parse(input.trim()) {
+            println!("{e}. Try again.");
+            continue;
+        }
+        y_num = input.trim().parse::<usize>().expect("Parse failed: at y_num") - 1;
+        
+        // Check for out of bounds error
+        match check_out_of_bounds(&grid, &y_num, &x_num) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("{e}. Try again.");
+                continue;
+            },
+        }
 
-        // // Debug --------
-        // println!("Column: {}, Row: {}", x_num+1, y_num+1);
-        // println!("Column index: {x_num}, Row index: {y_num}");
-        // // -------- Debug
-
-        // If the cell is empty
-        if grid[(y_num, x_num)] == '-' {
-            // Place an X/O
-            if x_turn {
-                grid[(y_num, x_num)] = 'X';
-            } else {
-                grid[(y_num, x_num)] = 'O';
+        if grid[(y_num, x_num)] == cell_empty { // If the cell is empty
+            
+            // Place an X or O based on the current player
+            match player {
+                PlayerTurn::X => grid[(y_num, x_num)] = 'X',
+                PlayerTurn::O => grid[(y_num, x_num)] = 'O',
             }
         } else { // If the cell is invalid, the grid will not be printed and the turn will not change
+            
             println!("Invalid location, please try again.");
             continue;
         }
@@ -76,13 +92,12 @@ fn main() {
         };
 
         // Switch turn
-        if x_turn {
-            x_turn = false;
-        } else {
-            x_turn = true;
-        }
+        player = player.switch();
     }
 }
+
+
+
 
 // 
 fn check_win(grid: &Array2<char>) -> bool {
@@ -122,4 +137,40 @@ fn diag_2(grid: &Array2<char>) -> Array1<char> {
     invert.invert_axis(ndarray::Axis(1));
     // Return the diagonal of the inverted array
     invert.diag().to_owned()
+}
+
+fn check_out_of_bounds(grid: &Array2<char>, y: &usize, x: &usize) -> Result<(), String> {
+
+    match grid.get((*y, *x)) {
+        Some(_) => Ok(()),
+        None => Err(String::from("Invalid index")),
+    }
+}
+
+fn check_parse(str: &str) -> Result<(), std::num::ParseIntError> {
+    match str.parse::<usize>() {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e)
+    }
+}
+
+enum PlayerTurn {
+    X,
+    O,
+}
+
+impl PlayerTurn {
+    fn switch(self) -> PlayerTurn {
+        match self {
+            PlayerTurn::X => PlayerTurn::O,
+            PlayerTurn::O => PlayerTurn::X,
+        }
+    }
+
+    fn print_turn(&self) {
+        match self {
+            PlayerTurn::X => println!("X's turn"),
+            PlayerTurn::O => println!("O's turn"),
+        }
+    }
 }
